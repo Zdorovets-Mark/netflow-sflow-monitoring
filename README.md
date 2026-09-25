@@ -167,7 +167,6 @@ sudo tcpreplay -i enp0s9 --preload-pcap --pps=50000 traffic.pcap
 Mark Zdorovets
 
 GitHub: [@Zdorovets-Mark](https://github.com/Zdorovets-Mark)
-)
 
 ## Планы развития
 
