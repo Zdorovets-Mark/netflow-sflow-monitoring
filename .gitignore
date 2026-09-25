@@ -1,0 +1,23 @@
+# Данные БД (гигабайты!)
+docker_stack/data/
+data/
+
+# Секреты
+.env
+docker_stack/.env
+
+# Логи
+*.log
+*.dump
+
+# Кэш Python
+__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
