@@ -52,8 +52,8 @@
 
 ```bash
 # 1. Клонировать репозиторий
-git clone https://github.com/ТВОЙ_НИК/netflow-monitoring.git
-cd netflow-monitoring/docker_stack
+git clone https://github.com/Zdorovets-Mark/netflow-sflow-monitoring.git
+cd netflow-sflow-monitoring/docker_stack
 
 # 2. Скопировать шаблон переменных окружения
 cp .env.example .env
@@ -107,7 +107,7 @@ docker exec -it timescaledb psql -U postgres -c "SELECT COUNT(*) FROM netflow_da
 ## Структура проекта
 
 ```
-netflow-monitoring/
+netflow-sflow-monitoring/
 ├── docker_stack/              # Всё, что касается развёртывания
 │   ├── docker-compose.yml     # Оркестрация всех сервисов
 │   ├── .env.example           # Шаблон переменных окружения
@@ -130,7 +130,7 @@ python3 scripts/gen.py
 sudo tcpreplay -i enp0s9 --preload-pcap --pps=50000 traffic.pcap
 ```
 
-## тек технологий
+## Стек технологий
 
 - **Docker / Docker Compose** — контейнеризация и оркестрация
 - **pmacct** (`pmacctd`, `nfacctd`, `sfacctd`) — сенсор и коллекторы
