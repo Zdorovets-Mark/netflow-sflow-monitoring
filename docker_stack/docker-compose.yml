@@ -1,0 +1,90 @@
+services:
+
+    timescaledb:
+        image: timescale/timescaledb:latest-pg14
+        container_name: timescaledb
+        environment:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        volumes:
+          - ./data/timescaledb:/var/lib/postgresql/data
+          - ./init-scripts:/docker-entrypoint-initdb.d:ro
+        ports:
+          - "5432:5432"
+        command: postgres -c 'max_connections=200'
+        restart: unless-stopped
+
+    grafana:
+        image: grafana/grafana:latest
+        container_name: grafana
+        environment:
+          GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
+          GF_USERS_ALLOW_SIGN_UP: ${GF_USERS_ALLOW_SIGN_UP:-false}
+
+          GF_SMTP_ENABLED: ${GF_SMTP_ENABLED:-false}
+          GF_SMTP_HOST: ${GF_SMTP_HOST:-smtp.gmail.com:587}
+          GF_SMTP_USER: ${GF_SMTP_USER}
+          GF_SMTP_PASSWORD: ${GF_SMTP_PASSWORD}
+          GF_SMTP_FROM_ADDRESS: ${GF_SMTP_FROM_ADDRESS}
+          GF_SMTP_FROM_NAME: ${GF_SMTP_FROM_NAME:-Grafana Alerts}
+          GF_SMTP_SKIP_VERIFY: ${GF_SMTP_SKIP_VERIFY:-true}
+          GF_SMTP_STARTTLS_POLICY: ${GF_SMTP_STARTTLS_POLICY:-MandatoryStartTLS}
+           
+        depends_on:
+          - timescaledb
+        ports:
+          - "3000:3000"
+        volumes:
+          - grafana_data:/var/lib/grafana
+          - ./grafana/provisioning:/etc/grafana/provisioning:ro
+          - ./grafana/dashboards_json:/var/lib/grafana/dashboards:ro
+        restart: unless-stopped
+
+    nfacctd:
+        build:
+            context: ./nfacctd
+        container_name: nfacctd
+        # image: markw124/netflow-nfacctd:1.0
+        volumes:
+            - ./nfacctd/nfacctd.conf:/etc/pmacct/nfacctd.conf:ro
+        ports:
+            - "2055:2055/udp"
+        depends_on:
+            - timescaledb
+
+    sfacctd:
+        build: ./sfacctd
+        container_name: sfacctd
+        volumes:
+            - ./sfacctd/sfacctd.conf:/etc/pmacct/sfacctd.conf:ro
+        ports:
+            - "6343:6343/udp"
+        depends_on:
+            - timescaledb
+
+    pmacct-sensor-nfprobe:
+        image: pmacct/pmacctd:latest
+        container_name: nfprobe
+        network_mode: host
+        cap_add: ['NET_ADMIN', 'NET_RAW']
+        volumes:
+          - ./pmacctd/nfprobe.conf:/etc/pmacct/nfprobe.conf:ro
+          - ./pmacctd/pretag.map:/etc/pmacct/pretag.map:ro
+        command: pmacctd -f /etc/pmacct/nfprobe.conf -i enp0s8
+        #  ~/test_sensor/docker_stack/pmacctd/nfprobe.conf 
+        # /etc/pmacct/nfprobe.conf
+
+    pmacct-sensor-sfprobe:
+        image: pmacct/pmacctd:latest
+        container_name: sfprobe
+        network_mode: host
+        cap_add: ['NET_ADMIN', 'NET_RAW']
+        volumes:
+          - ./pmacctd/sfprobe.conf:/etc/pmacct/sfprobe.conf:ro
+        command: pmacctd -f /etc/pmacct/sfprobe.conf -i enp0s8
+        # ~/test_sensor/docker_stack/pmacctd/sfprobe.conf 
+        # /etc/pmacct/sfprobe.conf
+
+volumes:
+  grafana_data:

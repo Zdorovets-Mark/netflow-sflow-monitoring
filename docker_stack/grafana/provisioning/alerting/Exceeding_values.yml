@@ -1,0 +1,159 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Превышение пороговых значений
+    folder: Alerts
+    interval: 30s
+
+    rules:
+      - uid: main_exceeding_values
+        title: Общее превышение объёма NetFlow трафика
+        condition: C
+
+        data:
+          - refId: A
+            datasourceUid: postgres_uid
+            relativeTimeRange:
+              from: 300   # за последние 5 минут
+              to: 0
+
+            model:
+              datasource:
+                type: postgres
+                uid: postgres_uid
+
+              editorMode: code
+              format: table
+              rawSql: |
+                SELECT
+                  SUM(bytes) AS total_bytes
+                FROM netflow_data
+                WHERE $__timeFilter(stamp_inserted)
+                  AND ip_dst << '192.168.0.0/16'
+              refId: A
+
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    params: [1000000000]   # 1 ГБ
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [C]
+                  reducer:
+                    type: last
+                  type: query
+
+        noDataState: Alerting
+        execErrState: Alerting
+
+        for: 2m
+
+        annotations:
+          summary: Общее превышение объёма NetFlow трафика
+          description: Объем входящего NetFlow трафика превысил 1 ГБ за последние 5 минут.
+
+        labels:
+          severity: critical
+      
+      # если нужен исходящий трафик, то добавить "AND ip_src << '192.168.0.0/16'" в select   
+      - uid: exceeding_values_on_port_protocol
+        title: Превышение объёма DNS-трафика (UDP/53)
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: postgres_uid
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              datasource:
+                type: postgres
+                uid: postgres_uid
+              editorMode: code
+              format: table
+              rawSql: |
+                SELECT SUM(bytes) AS total_bytes
+                FROM netflow_data
+                WHERE $__timeFilter(stamp_inserted)
+                  AND ip_proto = 17
+                  AND port_dst = 443
+                  
+              refId: A
+
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    params: [1000000000]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [C]
+                  reducer:
+                    type: last
+                  type: query
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 2m
+        annotations:
+          summary: Превышение объёма DNS-трафика (UDP/443)
+          description: Объём DNS-трафика превысил 1 ГБ за последние 5 минут.
+        labels:
+          severity: critical
+
+      - uid: exceeding_values_on_ip
+        title: Превышение объёма исходящего трафика от пользователя
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: postgres_uid
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              datasource:
+                type: postgres
+                uid: postgres_uid
+              editorMode: code
+              format: table
+              rawSql: |
+                SELECT SUM(bytes) AS total_bytes
+                FROM netflow_data
+                WHERE $__timeFilter(stamp_inserted)
+                  AND ip_src = '192.168.236.157'
+              refId: A
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    params: [1000000]   # 1 МБ
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [C]
+                  reducer:
+                    type: last
+                  type: query
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 2m
+        annotations:
+          summary: Превышение объёма исходящего трафика от пользователя
+          description: Объём исходящего трафика от IP 192.168.236.157 превысил 1 ГБ за последние 5 минут.
+        labels:
+          severity: critical

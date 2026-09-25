@@ -1,0 +1,11 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: local-contact
+
+    receivers:
+      - uid: receiver1
+        type: email
+        settings:
+          addresses: 031103nov@gmail.com

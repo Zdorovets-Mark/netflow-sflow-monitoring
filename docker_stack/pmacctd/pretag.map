@@ -1,0 +1,4 @@
+set_tag=1 filter='ether dst 08:00:27:19:44:52'     # Трафик на этот MAC → ingress
+set_tag=2 filter='ether src 08:00:27:19:44:52'     # Трафик от этого MAC → egress
+set_tag2=3 filter='ether dst 08:00:27:19:44:52'    # Индекс 3 для входящего трафика
+set_tag2=3 filter='ether src 08:00:27:19:44:52'    # Индекс 3 для исходящего трафика

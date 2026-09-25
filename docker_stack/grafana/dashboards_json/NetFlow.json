@@ -1,0 +1,346 @@
+{
+    "id": null,
+    "uid": "netflow-nfacctd-uid",
+    "title": "Инфомация о NetFlow трафике. Коллектор — nfacctd",
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "10s",
+    "time": { 
+      "from": "now-1h", 
+      "to": "now" 
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "sensor",
+          "type": "query",
+          "datasource": "PostgreSQL",
+          "query": "SELECT DISTINCT peer_ip_src FROM netflow_data WHERE $__timeFilter(stamp_inserted) ORDER BY peer_ip_src",
+          "refresh": 1,
+          "current": { 
+            "selected": true, 
+            "text": "All", 
+            "value": "$__all" 
+          },
+          "includeAll": true,
+          "multi": true
+        },
+        {
+          "name": "iface_in",
+          "type": "query",
+          "datasource": "PostgreSQL",
+          "query": "SELECT DISTINCT iface_in FROM netflow_data WHERE $__timeFilter(stamp_inserted) AND peer_ip_src IN ($sensor) ORDER BY iface_in",
+          "refresh": 1,
+          "current": { 
+            "selected": true, 
+            "text": "All", 
+            "value": "$__all" 
+          },
+          "includeAll": true,
+          "multi": true
+        },
+        {
+          "name": "iface_out",
+          "type": "query",
+          "datasource": "PostgreSQL",
+          "query": "SELECT DISTINCT iface_out FROM netflow_data WHERE $__timeFilter(stamp_inserted) AND peer_ip_src IN ($sensor) ORDER BY iface_out",
+          "refresh": 1,
+          "current": { 
+            "selected": true, 
+            "text": "All", 
+            "value": "$__all" 
+          },
+          "includeAll": true,
+          "multi": true
+        }
+      ]
+    },
+
+    "panels": [
+      {
+        "type": "timeseries",
+        "title": "Топ-8 лучших принимающих (по количеству байтов)",
+        "gridPos": { 
+          "x": 0, 
+          "y": 0, 
+          "w": 12, 
+          "h": 8 
+        },
+        "datasource": "PostgreSQL",
+        "targets": [
+          {
+            "refId": "A",
+            "format": "time_series",
+            "rawSql": "WITH top AS (SELECT ip_dst FROM netflow_data WHERE $__timeFilter(stamp_inserted) AND peer_ip_src IN ($sensor) AND iface_in IN ($iface_in) AND iface_out IN ($iface_out) GROUP BY ip_dst ORDER BY sum(bytes) DESC LIMIT 8)\nSELECT $__timeGroup(stamp_inserted,'1m') AS time, sum(bytes) AS value, ip_dst AS metric\nFROM netflow_data JOIN top USING (ip_dst)\nWHERE $__timeFilter(stamp_inserted) AND peer_ip_src IN ($sensor) AND iface_in IN ($iface_in) AND iface_out IN ($iface_out)\nGROUP BY 1, ip_dst\nORDER BY 1"
+          }
+        ],
+        "fieldConfig": { 
+          "defaults": { 
+            "unit": "bytes" 
+          } 
+        }
+      },
+
+      {
+        "type": "timeseries",
+        "title": "Топ-8 отправителей (по байтам)",
+        "gridPos": { 
+          "x": 12, 
+          "y": 0, 
+          "w": 12, 
+          "h": 8 
+        },
+        "datasource": "PostgreSQL",
+        "targets": [
+          {
+            "refId": "B",
+            "format": "time_series",
+            "rawSql": "WITH top AS (SELECT ip_src FROM netflow_data WHERE $__timeFilter(stamp_inserted) GROUP BY ip_src ORDER BY sum(bytes) DESC LIMIT 8)\nSELECT $__timeGroup(stamp_inserted,'1m') AS time, sum(bytes) AS value, ip_src AS metric\nFROM netflow_data JOIN top USING (ip_src)\nWHERE $__timeFilter(stamp_inserted)\nGROUP BY 1, ip_src\nORDER BY 1;"
+          }
+        ],
+        "fieldConfig": { 
+          "defaults": { 
+            "unit": "bytes" 
+          } 
+        }
+      },
+
+      {
+        "type": "barchart",
+        "title": "Самые популярные протоколы (по объёму байтов)",
+        "gridPos": { 
+          "x": 0, 
+          "y": 8, 
+          "w": 12, 
+          "h": 6 
+        },
+        "datasource": "PostgreSQL",
+        "targets": [
+          {
+            "refId": "C",
+            "format": "table",
+            "rawSql": "SELECT CASE ip_proto WHEN 6 THEN 'TCP' WHEN 17 THEN 'UDP' ELSE ip_proto::text END AS metric, sum(bytes) AS value FROM netflow_data WHERE $__timeFilter(stamp_inserted) GROUP BY ip_proto ORDER BY sum(bytes) DESC LIMIT 10;"
+          }
+        ],
+        "fieldConfig": { 
+          "defaults": { 
+            "unit": "bytes", 
+            "min": 0,
+            "custom": {
+              "displayMode": "gradient",
+              "showValue": "always"
+            } 
+          } 
+        },
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "gradient",
+          "showUnfilled": true,
+          "valueMode": "text"
+        }
+      },
+
+      {
+        "type": "stat",
+        "title": "Количество записей в минуту (текущее значение)",
+        "gridPos": { 
+          "x": 12, 
+          "y": 8, 
+          "w": 6, 
+          "h": 6 
+        },
+        "datasource": "PostgreSQL",
+        "targets": [
+          {
+            "refId": "D",
+            "format": "time_series",
+            "rawSql": "SELECT $__timeGroup(stamp_inserted,'1m') AS time, count(*) AS value FROM netflow_data WHERE $__timeFilter(stamp_inserted) GROUP BY 1 ORDER BY 1;"
+          }
+        ],
+        "fieldConfig": { 
+          "defaults": { 
+            "unit": "short", 
+            "decimals": 0 
+          } 
+        },
+        "options": { 
+          "reduceOptions": { 
+            "calcs": [ 
+              "lastNotNull" 
+            ] 
+          } 
+        }
+      },
+
+      {
+        "type": "stat",
+        "title": "Общее количество записей (окно)",
+        "gridPos": { 
+          "x": 18, 
+          "y": 8, 
+          "w": 6, 
+          "h": 6 
+        },
+        "datasource": "PostgreSQL",
+        "targets": [
+          {
+            "refId": "E",
+            "format": "time_series",
+            "rawSql": "SELECT $__timeGroup(stamp_inserted,'1m') AS time, count(*) AS value FROM netflow_data WHERE $__timeFilter(stamp_inserted) GROUP BY 1 ORDER BY 1;"
+          }
+        ],
+        "fieldConfig": { 
+          "defaults": { 
+            "unit": "short", 
+            "decimals": 0 
+          } 
+        },
+        "options": { 
+          "reduceOptions": { 
+            "calcs": [ 
+              "sum" 
+            ] 
+          } 
+        }
+      },
+
+      {
+        "type": "timeseries",
+        "title": "Общий объем трафика (байты/сек) за определенный период времени",
+        "gridPos": { 
+          "x": 0, 
+          "y": 14, 
+          "w": 12, 
+          "h": 8 
+        },
+        "datasource": "PostgreSQL",
+        "targets": [
+          {
+            "refId": "A",
+            "format": "time_series",
+            "rawSql": "SELECT $__timeGroup(stamp_inserted,'1m') AS time, SUM(bytes) AS value FROM netflow_data WHERE $__timeFilter(stamp_inserted) GROUP BY 1 ORDER BY 1;"
+          }
+        ],
+        "fieldConfig": { 
+          "defaults": { 
+            "unit": "bytes" 
+          } 
+        }
+      },
+
+      {
+        "type": "barchart",
+        "title": "Наиболее часто используемые порты назначения (по байтам)",
+        "gridPos": { 
+          "x": 12, 
+          "y": 14, 
+          "w": 12, 
+          "h": 8 
+        },
+        "datasource": "PostgreSQL",
+        "targets": [
+          {
+            "refId": "A",
+            "format": "table",
+            "rawSql": "SELECT CASE port_dst\n  WHEN 443 THEN '443 (HTTPS)'\n  WHEN 80 THEN '80 (HTTP)'\n  WHEN 53 THEN '53 (DNS)'\n  WHEN 22 THEN '22 (SSH)'\n  WHEN 3306 THEN '3306 (MySQL)'\n  WHEN 5432 THEN '5432 (PostgreSQL)'\n  ELSE port_dst::text\nEND AS metric,\nSUM(bytes) AS value\nFROM netflow_data\nWHERE $__timeFilter(stamp_inserted)\nGROUP BY port_dst\nORDER BY value DESC\nLIMIT 10;"
+          }
+        ],
+        "fieldConfig": { 
+          "defaults": { 
+            "unit": "bytes" 
+          } 
+        }
+      },
+
+      {
+        "type": "stat",
+        "title": "Средний размер пакета",
+        "gridPos": { 
+          "x": 0, 
+          "y": 22, 
+          "w": 6, 
+          "h": 4 
+        },
+        "datasource": "PostgreSQL",
+        "targets": [
+          {
+            "refId": "A",
+            "format": "table",
+            "rawSql": "SELECT AVG(bytes) AS value FROM netflow_data WHERE $__timeFilter(stamp_inserted);"
+          }
+        ],
+        "fieldConfig": { 
+          "defaults": { 
+            "unit": "bytes", 
+            "decimals": 0 
+          } 
+        },
+        "options": { 
+          "reduceOptions": { 
+            "calcs": [ 
+              "mean" 
+            ] 
+          } 
+        }
+      },
+
+      {
+        "type": "stat",
+        "title": "Общий объем трафика (байты) в окне",
+        "gridPos": { 
+          "x": 6, 
+          "y": 22, 
+          "w": 6, 
+          "h": 4 
+        },
+        "datasource": "PostgreSQL",
+        "targets": [
+          {
+            "refId": "A",
+            "format": "table",
+            "rawSql": "SELECT SUM(bytes) AS value FROM netflow_data WHERE $__timeFilter(stamp_inserted);"
+          }
+        ],
+        "fieldConfig": { 
+          "defaults": { 
+            "unit": "bytes", 
+            "decimals": 0 
+          } 
+        },
+        "options": { 
+          "reduceOptions": { 
+            "calcs": [ 
+              "sum" 
+            ] 
+          } 
+        }
+      },
+
+      {
+        "type": "timeseries",
+        "title": "Оценка потерь (если таковая имеется)",
+        "gridPos": { 
+          "x": 12, 
+          "y": 22, 
+          "w": 12, 
+          "h": 4 
+        },
+        "datasource": "PostgreSQL",
+        "targets": [
+          {
+            "refId": "A",
+            "format": "time_series",
+            "rawSql": "SELECT $__timeGroup(stamp_inserted,'1m') AS time, (1 - SUM(packets)/100000.0) AS value FROM netflow_data WHERE $__timeFilter(stamp_inserted) GROUP BY 1 ORDER BY 1;"
+          }
+        ],
+        "fieldConfig": { 
+          "defaults": { 
+            "unit": "percent",
+            "min": 0, 
+            "max": 100 
+          }
+        }
+      }
+    ]
+}

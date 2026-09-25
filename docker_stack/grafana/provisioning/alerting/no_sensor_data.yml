@@ -1,0 +1,112 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Отсутствие данных от сенсора
+    folder: Alerts
+    interval: 30s
+
+    rules:
+      - uid: netflow_missing
+        title: Отсутствие данных от сенсора(NetFlow)
+        condition: C
+
+        data:
+          - refId: A
+            datasourceUid: postgres_uid
+            relativeTimeRange:
+              from: 120
+              to: 0
+
+            model:
+              datasource:
+                type: postgres
+                uid: postgres_uid
+
+              editorMode: code
+              format: table
+              rawSql: |
+                SELECT
+                  COUNT(*) as total
+                FROM netflow_data
+                WHERE stamp_inserted > NOW() - INTERVAL '1 minute';
+
+              refId: A
+
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    params:
+                      - 1
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                  type: query
+
+        noDataState: Alerting
+        execErrState: Alerting
+
+        for: 1m
+
+        annotations:
+          summary: NetFlow сенсор прекратил отправлять данные
+          description: Нет новых NetFlow записей обнаруженных за последнюю минуту .
+
+        labels:
+          severity: critical
+
+      - uid: sflow_missing
+        title: Отсутствие данных от сенсора (sFlow)
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: postgres_uid
+            relativeTimeRange:
+              from: 120
+              to: 0
+            model:
+              datasource:
+                type: postgres
+                uid: postgres_uid
+              editorMode: code
+              format: table
+              rawSql: |
+                SELECT COUNT(*) as total
+                FROM sflow_data
+                WHERE stamp_inserted > NOW() - INTERVAL '1 minute';
+              refId: A
+          
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    params: [1]
+                    type: lt
+                  operator: { type: and }
+                  query: { params: ["C"] }
+                  reducer: { type: last }
+                  type: query
+        
+        noDataState: Alerting
+        execErrState: Alerting
+
+        for: 1m
+
+        annotations:
+          summary: sFlow сенсор прекратил отправлять данные
+          description: Нет новых sFlow записей обнаруженных за последнюю минуту .
+
+        labels:
+          severity: critical
